@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: sans-serif;
+    }
+
+    #dashboard {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100%;
+    }
+
+    #menus {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 20px;
+      background-color: #222;
+      color: white;
+      width: 100%;
+    }
+
+    #menus label {
+      color: white;
+    }
+
+    #menus select {
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    #content-row {
+      display: flex;
+      flex-direction: row;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #left_stat_container {
+      flex: 1;
+      padding: 10px;
+      overflow: auto;
+      border-right: 1px solid #ccc;
+    }
+
+    #center_map_container {
+      flex: 2.5;              /* map gets twice as much space */
+      padding: 10px;
+      overflow: auto;
+      border-right: 1px solid #ccc;
+    }
+
+    #choropleth-container {
+      position: relative;  /* needed for tooltip positioning */
+    }
+
+    #search_container {
+      flex: 1;
+      padding: 20px;
+      overflow: auto;
+    }
+  </style>
+  
+</head>
+<script src="d3.v7.js"></script>
+<script type="module">
+
+//load in global and community-level information
+const globalInfo = await d3.dsv("\t","/csvs/global_level_df.csv");
+const commInfo = await d3.dsv("\t","/csvs/comm_level_df.csv");
+const land_geoJson = await d3.json("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson")
+const global_geoJson = await d3.json("geojson/countries_land.geojson")
+
+// define genre and country lists
+const genreList = ['black','death','doom','electronic','experimental','folk','gothic','grindcore',
+                      'groove','heavy','metalcore','power','progressive', 'speed',
+                      'symphonic','thrash']
+const proportionGenreList = genreList.map(d => d+"_proportions")
+const countryList = commInfo.columns.filter((name) => name.includes("country"))
+
+console.log(globalInfo);
+console.log(commInfo);
+
+//variables and helper functions to populate dropdown menus
+var seed = 1;
+var community = -1;
+const possible_seeds = Array.from(new Set(commInfo.map(row => row.seed-656)))
+var selected_communities = commInfo.filter((row) => row.seed == seed+656).map(row => row.community);
+
+
+const seed_menu = d3.select("#seed_menu")
+const community_menu = d3.select("#community_menu")
+
+function populate_dropdown(use_seed){
+	seed = parseInt(use_seed);
+	console.log(seed+656)
+	selected_communities = commInfo.filter((row) => row.seed == seed+656).map(row => row.community);
+	community_menu.append("option")
+		.attr("class", "global-option")
+		.attr("value", -1)
+		.text("global")
+	
+	community_menu.selectAll("option.community-option")
+		.data(selected_communities)
+		.enter()
+		.append("option")
+		.attr("class", "community_option")
+		.attr("value", d=>d)
+		.text(d=>parseInt(d)+1)
+}
+
+function depopulate_dropdown(){
+	community_menu.selectAll('option').each(function() {d3.select(this).remove()});
+}
+
+// helper functions to populate community/global-level graphs
+
+var margin = {top: 30, right: 30, bottom: 70, left: 60},
+    width = 345 - margin.left - margin.right,
+    height = 300 - margin.top - margin.bottom;
+
+function select_from_columns(row,columnlist){
+	const output = []
+	for (let i=0; i < columnlist.length;i++){
+		output.push(row[columnlist[i]]);
+	}
+	return output
+}
+
+function generate_map_from_columns(row,columnlist,namelist){
+	var output = new Map(); 
+	for (let i = 0; i < columnlist.length; i++){
+		output.set(namelist[i], row[columnlist[i]]);
+	}
+	return output
+}
+
+function create_genre_graph(use_seed,use_community){
+
+	var proportions = false 
+	var genre_graph_svg = d3.select("#genre_graph_container")
+							.append("svg")
+							.attr("width", width + margin.left + margin.right)
+							.attr("height", height + margin.top + margin.bottom)
+							.append("g")
+								.attr("transform",
+									  "translate(" + margin.left + "," + margin.top + ")");
+	var genre_graph_x = d3.scaleBand()
+							.range([0, width])
+							.domain(genreList)
+							.padding(0.2)
+	genre_graph_svg.append("g")
+		.attr("transform", "translate(0," + height + ")")
+		.call(d3.axisBottom(genre_graph_x))
+		.selectAll("text")
+		.attr("transform", "translate(-10,0)rotate(-45)")
+		.style("text-anchor", "end");
+		
+		
+	if (proportions == false) {
+		var use_genreList = genreList
+	} else {
+		var use_genreList = proportionGenreList
+	}
+	if (use_community == -1){
+		console.log("welcome to da gungo")
+		var genre_heights = select_from_columns(globalInfo[0],use_genreList)
+		
+	} else{
+		console.log("We got gun and go")
+		var use_this_row = commInfo.filter((row) => row.seed == use_seed+656)
+									.filter((row) => row.community == use_community)[0]
+		console.log("eeeeee")
+		console.log(use_this_row)
+		var genre_heights = select_from_columns(use_this_row,use_genreList)
+	}
+	
+	genre_heights = genre_heights.map(x => parseInt(x))
+	var highest_height = parseInt(Math.max(...genre_heights) * 1.2)
+	var feed_in_genre_data = []
+	
+	for (let i=0; i < genre_heights.length; i++){
+		feed_in_genre_data.push({genre_label: use_genreList[i], genre_height: genre_heights[i]})
+	}
+	
+	console.log(feed_in_genre_data)
+	
+	var genre_graph_y = d3.scaleLinear()
+				.domain([0, highest_height])
+				.range([height, 0]);
+	genre_graph_svg.append("g")
+		.call(d3.axisLeft(genre_graph_y))
+	
+	genre_graph_svg.selectAll("genrebar")
+		.data(feed_in_genre_data)
+		.enter()
+		.append("rect")
+			.attr("x", function(d) {return genre_graph_x(d.genre_label)})
+			.attr("y", function(d) {return genre_graph_y(d.genre_height)})
+			.attr("width", genre_graph_x.bandwidth())
+			.attr("height", function(d) {return height - genre_graph_y(d.genre_height)})
+
+}
+
+function depopulate_genre_graph(){
+	d3.select("#genre_graph_container").select("svg").remove()
+}
+
+//populate trivia 
+
+function populate_trivia(use_seed, use_community){
+	//<div id="max-degree-id"></div>
+	//<div id="max-degree-name"></div>
+	//<div id="max-degree-cluster"></div>
+	//<div id="average-degree"></div>
+	//<div id="endbranch-count"></div>
+	//<div id="assortativity"></div>
+	//<div id="clustering"></div>
+	//<div id="density"></div>
+	if (use_community == -1){
+		console.log("welcome to da gungo")
+		var use_this_row = globalInfo[0]
+		
+	} else{
+		console.log("We got gun and go")
+		var use_this_row = commInfo.filter((row) => row.seed == use_seed+656)
+									.filter((row) => row.community == use_community)[0]
+		
+	}
+	d3.select("#max-degree-name").append("g").html("<b> Band with highest degree: </b>" + use_this_row['max_degree_name'])
+	d3.select("#max-degree-cluster").append("g").html("<b> Highest degree: </b>" + use_this_row['max_degree_cluster'])
+	d3.select("#average-degree").append("g").html("<b> Average degree: </b>" + use_this_row['average_degree'])
+	d3.select("#endbranch-count").append("g").html("<b> Number of end branches: </b>" + use_this_row['endbranch_count'])
+	d3.select("#assortativity").append("g").html("<b> Assortativity: </b>" + Math.round(use_this_row['assortativity']*1000)/1000)
+	d3.select("#clustering").append("g").html("<b> Clustering: </b>" + Math.round(use_this_row['clustering']*1000)/1000)
+	d3.select("#density").append("g").html("<b> Density: </b>" + Math.round(use_this_row['density']*100000)/100000)
+	
+	console.log(use_this_row)
+	console.log(use_this_row["country_Saudi Arabia"])
+}
+
+function depopulate_trivia(){
+	d3.select("#max-degree-name").select("g").remove()
+	d3.select("#max-degree-cluster").select("g").remove()
+	d3.select("#average-degree").select("g").remove()
+	d3.select("#endbranch-count").select("g").remove()
+	d3.select("#assortativity").select("g").remove()
+	d3.select("#clustering").select("g").remove()
+	d3.select("#density").select("g").remove()
+}
+
+
+//create choropleth map
+
+const chor_width = 720;
+const chor_height = 400;
+const projection = d3.geoEqualEarth()
+	.reflectY(false)
+    .fitSize([chor_width, chor_height], global_geoJson);
+const path = d3.geoPath().projection(projection);
+
+function moveTooltip(event) {
+    const tooltipNode = tooltip2.node();
+    const tooltipWidth = tooltipNode.offsetWidth;
+    const tooltipHeight = tooltipNode.offsetHeight;
+    const offset = 12;
+
+    const containerRect = document.getElementById("choropleth-container").getBoundingClientRect();
+
+    let leftPos;
+    if (event.clientX + offset + tooltipWidth > window.innerWidth) {
+        leftPos = event.clientX - containerRect.left - tooltipWidth - offset;
+    } else {
+        leftPos = event.clientX - containerRect.left + offset;
+    }
+
+    let topPos;
+    if (event.clientY + offset + tooltipHeight > window.innerHeight) {
+        topPos = event.clientY - containerRect.top - tooltipHeight - offset;
+    } else {
+        topPos = event.clientY - containerRect.top + offset;
+    }
+
+    tooltip2
+        .style("left", leftPos + "px")
+        .style("top", topPos + "px");
+}
+
+
+function create_choropleth(use_seed, use_community) {
+	
+	if (community == -1){
+		var choro_use_map = generate_map_from_columns(globalInfo[0],countryList, country_name_list)
+	}
+	else{
+		var filtered_map = commInfo.filter((row) => row.seed == use_seed+656)
+									.filter((row) => row.community == use_community)[0]
+		var choro_use_map = generate_map_from_columns(filtered_map, countryList, country_name_list)
+	}
+
+	var chorovals = []
+
+	choro_use_map.forEach((value, key, map) => {chorovals.push(+value)})
+	console.log("HAWNK")
+	var choromax = parseInt(Math.max(...chorovals)*0.9)
+
+	var colorScale = d3.scaleQuantize([0,choromax],d3.schemeReds[9]);
+
+
+	choro_svg.append("g")
+		.selectAll("path")
+		.data(global_geoJson.features)
+		.join("path")
+		.attr("d", path)
+		.attr("fill", function(d){
+			//console.log(d.properties.name)
+			d.total = choro_use_map.get(d.properties.name)
+			if (d.total==0) {
+				return "gray"
+			}
+			else{
+				return colorScale(d.total)
+			}
+		})
+		//.attr("stroke", "white")
+		//.attr("stroke-width", 0.1)
+		.attr("id", "choro_fill")
+		.on("mouseover", (event, d) => {
+    if (+d.total > 0) {
+        var bandcountword;
+        if (d.total == 1) {
+            bandcountword = "band";
+        } else {
+            bandcountword = "bands";
+        }
+        tooltip2
+            .style("visibility", "visible")
+            .html("<p>" + d.properties.name + ": " + d.total + " " + bandcountword + ".</p>");
+        moveTooltip(event);
+    }
+})
+		.on("mouseout", () => tooltip2.style("visibility","hidden"))
+		.on("mousemove", (event) => moveTooltip(event))
+		;
+
+}
+
+function depopulate_choropleth(){
+	d3.selectAll("#choro_fill").remove();
+}
+
+//tooltip for hovering over choropleth country 
+
+var tooltip2 = d3.select("#choropleth-container")
+				.append("div")
+				.style("position", "absolute")
+				.style("visibility", "hidden")
+				.style("border", "solid")
+				.style("background-color", "grey")
+				.style("opacity", "0.7")
+				.style("color", "white")
+				.style("border-width", "1px")
+				.style("border-radius", "5px")
+				.style("padding", "10px")
+				.html("<p>testing</p>");
+
+
+//create on-change-seed condition 
+
+function on_change_seed(seed_value){
+	seed = seed_value;
+	community = -1;
+	console.log("Selected:", seed_value);
+	
+	depopulate_dropdown();
+	depopulate_genre_graph();
+	depopulate_choropleth();
+	depopulate_trivia();
+	
+	populate_dropdown(seed_value);
+	selected_communities = commInfo.filter((row) => row.seed == seed_value+656).map(row => row.community);
+	
+	populate_trivia(seed, community)
+	create_genre_graph(seed, community)
+	create_choropleth(seed, community)
+} 
+
+//create on-change-community condition
+
+function on_change_community(community_value){
+	community = community_value
+	console.log("Selected community: ", community_value)
+	depopulate_genre_graph(); 
+	depopulate_choropleth();
+	depopulate_trivia();
+	
+	populate_trivia(seed, community);
+	create_genre_graph(seed, community)
+	create_choropleth(seed, community)
+}
+
+//populate dropdown menus
+
+seed_menu.selectAll("option")
+	.data(possible_seeds)
+	.enter()
+	.append("option")
+	.attr("value", d=>d)
+	.text(d=>d)
+
+
+seed_menu.on("change", function() {
+	const selectedValue = d3.select(this).property("value")
+	on_change_seed(selectedValue)});
+	
+community_menu.on("change", function(){
+	const selectedCommunity = d3.select(this).property("value")
+	on_change_community(selectedCommunity);
+})
+
+//see outputs
+
+console.log(selected_communities)
+console.log(commInfo.columns)
+console.log(proportionGenreList)
+console.log(countryList.length)
+
+//Create initial stuff
+
+var choro_use_row = select_from_columns(globalInfo[0],countryList)
+var country_name_list = countryList.map(x => x.split('_')[1])
+
+
+
+
+const choro_svg = d3.select("#choropleth-container")
+    .append("svg")
+    .attr("width", chor_width)
+    .attr("height", chor_height);
+	
+choro_svg.append("g")
+	.selectAll("path")
+	.data(land_geoJson.features)
+	.join("path")
+	.attr("d", path)
+	.attr("fill", "grey")
+	.attr("stroke", "white")
+	.attr("stroke-width", 0.01)
+
+
+
+populate_dropdown(seed)
+console.log(commInfo[0])
+var selectedcols = select_from_columns(globalInfo[0],genreList);
+
+create_genre_graph(seed, community);
+
+populate_trivia(seed, community);
+
+
+
+create_choropleth(seed, community);
+
+
+
+</script>
+
+
+<div id= "dashboard">
+	<div id="menus">
+		<label for="seed_menu">Select a seed:</label>
+		<select name="seed_menu" id="seed_menu">
+		</select>
+
+		<label for="community_menu">Select a community:</label>
+		<select name="community_menu" id="community_menu">
+		</select>
+	</div>
+		<div id="content-row">
+		<div id="left_stat_container">
+			<div id="genre_graph_container"></div>
+			<div id="trivia-container">
+				<div id="max-degree-id"></div>
+				<div id="max-degree-name"></div>
+				<div id="max-degree-cluster"></div>
+				<div id="average-degree"></div>
+				<div id="endbranch-count"></div>
+				<div id="assortativity"></div>
+				<div id="clustering"></div>
+				<div id="density"></div>
+			</div>
+			
+		</div> 
+		<div id="center_map_container"> 
+			<div id = "choropleth-container"></div>
+		</div>
+		<div id="search_container">
+			<h1> Todo: </h1> 
+			<ul>
+				<li>Include URLs for band names</li>
+				<li>Allow clicking on a country to pull up that nation's bands</li>
+				<li>Search feature? Allow user to search for band in seed.</li>
+				<li>Network map, if possible (maps may be too large/intensive)</li>
+				<li>Pretty up CSS</li>
+			</ul>
+		</div>
+	</div>
+</div>
+
+<!--trying dropdown menu-->
+
