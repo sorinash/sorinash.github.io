@@ -89,7 +89,7 @@ const proportionGenreList = genreList.map(d => d+"_proportions")
 const countryList = commInfo.columns.filter((name) => name.includes("country"))
 
 console.log(globalInfo);
-console.log(commInfo);
+//console.log(commInfo);
 
 //variables and helper functions to populate dropdown menus
 var seed = 1;
@@ -103,7 +103,7 @@ const community_menu = d3.select("#community_menu")
 
 function populate_dropdown(use_seed){
 	seed = parseInt(use_seed);
-	console.log(seed+656)
+	//console.log(seed+656)
 	selected_communities = commInfo.filter((row) => row.seed == seed+656).map(row => row.community);
 	community_menu.append("option")
 		.attr("class", "global-option")
@@ -173,14 +173,14 @@ function create_genre_graph(use_seed,use_community){
 		var use_genreList = proportionGenreList
 	}
 	if (use_community == -1){
-		console.log("welcome to da gungo")
+		//console.log("welcome to da gungo")
 		var genre_heights = select_from_columns(globalInfo[0],use_genreList)
 		
 	} else{
-		console.log("We got gun and go")
+		//console.log("We got gun and go")
 		var use_this_row = commInfo.filter((row) => row.seed == use_seed+656)
 									.filter((row) => row.community == use_community)[0]
-		console.log("eeeeee")
+		//console.log("eeeeee")
 		console.log(use_this_row)
 		var genre_heights = select_from_columns(use_this_row,use_genreList)
 	}
@@ -193,7 +193,7 @@ function create_genre_graph(use_seed,use_community){
 		feed_in_genre_data.push({genre_label: use_genreList[i], genre_height: genre_heights[i]})
 	}
 	
-	console.log(feed_in_genre_data)
+	//console.log(feed_in_genre_data)
 	
 	var genre_graph_y = d3.scaleLinear()
 				.domain([0, highest_height])
@@ -228,16 +228,17 @@ function populate_trivia(use_seed, use_community){
 	//<div id="clustering"></div>
 	//<div id="density"></div>
 	if (use_community == -1){
-		console.log("welcome to da gungo")
+		//console.log("welcome to da gungo")
 		var use_this_row = globalInfo[0]
 		
 	} else{
-		console.log("We got gun and go")
+		//console.log("We got gun and go")
 		var use_this_row = commInfo.filter((row) => row.seed == use_seed+656)
 									.filter((row) => row.community == use_community)[0]
 		
 	}
-	d3.select("#max-degree-name").append("g").html("<b> Band with highest degree: </b>" + use_this_row['max_degree_name'])
+	d3.select("#comm_size").append("g").html("<b> Community size: </b>" + use_this_row['size'] + " bands")
+	d3.select("#max-degree-name").append("g").html("<b> Band with highest degree: </b> <a href = " + use_this_row['max_degree_url'] + ">" +    use_this_row['max_degree_name'] + "</a>")
 	d3.select("#max-degree-cluster").append("g").html("<b> Highest degree: </b>" + use_this_row['max_degree_cluster'])
 	d3.select("#average-degree").append("g").html("<b> Average degree: </b>" + use_this_row['average_degree'])
 	d3.select("#endbranch-count").append("g").html("<b> Number of end branches: </b>" + use_this_row['endbranch_count'])
@@ -245,11 +246,12 @@ function populate_trivia(use_seed, use_community){
 	d3.select("#clustering").append("g").html("<b> Clustering: </b>" + Math.round(use_this_row['clustering']*1000)/1000)
 	d3.select("#density").append("g").html("<b> Density: </b>" + Math.round(use_this_row['density']*100000)/100000)
 	
-	console.log(use_this_row)
-	console.log(use_this_row["country_Saudi Arabia"])
+	//console.log(use_this_row)
+	//console.log(use_this_row["country_Saudi Arabia"])
 }
 
 function depopulate_trivia(){
+	d3.select("#comm_size").select("g").remove()
 	d3.select("#max-degree-name").select("g").remove()
 	d3.select("#max-degree-cluster").select("g").remove()
 	d3.select("#average-degree").select("g").remove()
@@ -311,7 +313,6 @@ function create_choropleth(use_seed, use_community) {
 	var chorovals = []
 
 	choro_use_map.forEach((value, key, map) => {chorovals.push(+value)})
-	console.log("HAWNK")
 	var choromax = parseInt(Math.max(...chorovals)*0.9)
 
 	var colorScale = d3.scaleQuantize([0,choromax],d3.schemeReds[9]);
@@ -380,7 +381,7 @@ var tooltip2 = d3.select("#choropleth-container")
 function on_change_seed(seed_value){
 	seed = seed_value;
 	community = -1;
-	console.log("Selected:", seed_value);
+	//console.log("Selected:", seed_value);
 	
 	depopulate_dropdown();
 	depopulate_genre_graph();
@@ -399,7 +400,7 @@ function on_change_seed(seed_value){
 
 function on_change_community(community_value){
 	community = community_value
-	console.log("Selected community: ", community_value)
+	//console.log("Selected community: ", community_value)
 	depopulate_genre_graph(); 
 	depopulate_choropleth();
 	depopulate_trivia();
@@ -430,10 +431,10 @@ community_menu.on("change", function(){
 
 //see outputs
 
-console.log(selected_communities)
-console.log(commInfo.columns)
-console.log(proportionGenreList)
-console.log(countryList.length)
+//console.log(selected_communities)
+//console.log(commInfo.columns)
+//console.log(proportionGenreList)
+//console.log(countryList.length)
 
 //Create initial stuff
 
@@ -460,7 +461,7 @@ choro_svg.append("g")
 
 
 populate_dropdown(seed)
-console.log(commInfo[0])
+//console.log(commInfo[0])
 var selectedcols = select_from_columns(globalInfo[0],genreList);
 
 create_genre_graph(seed, community);
@@ -490,6 +491,7 @@ create_choropleth(seed, community);
 		<div id="left_stat_container">
 			<div id="genre_graph_container"></div>
 			<div id="trivia-container">
+				<div id="comm_size"></div>
 				<div id="max-degree-id"></div>
 				<div id="max-degree-name"></div>
 				<div id="max-degree-cluster"></div>
