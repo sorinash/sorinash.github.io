@@ -63,11 +63,16 @@
     #choropleth-container {
       position: relative;  /* needed for tooltip positioning */
     }
-
+	#right_info_container{
+		flex: 1;
+		padding: 20px;
+		overflow: auto;
+	}
     #search_container {
-      flex: 1;
-      padding: 20px;
-      overflow: auto;
+		flex: 1;
+		padding: 20px;
+		overflow: auto;
+		border-bottom: 1px solid #ccc;
     }
   </style>
   
@@ -78,6 +83,7 @@
 //load in global and community-level information
 const globalInfo = await d3.dsv("\t","/csvs/global_level_df.csv");
 const commInfo = await d3.dsv("\t","/csvs/comm_level_df.csv");
+const bandInfo = await d3.dsv("\t", "/csvs/band_level_df.csv");
 const land_geoJson = await d3.json("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson")
 const global_geoJson = await d3.json("geojson/countries_land.geojson")
 
@@ -96,6 +102,7 @@ var seed = 1;
 var community = -1;
 const possible_seeds = Array.from(new Set(commInfo.map(row => row.seed-656)))
 var selected_communities = commInfo.filter((row) => row.seed == seed+656).map(row => row.community);
+var community_list_populated = false
 
 
 const seed_menu = d3.select("#seed_menu")
@@ -336,6 +343,9 @@ function create_choropleth(use_seed, use_community) {
 		//.attr("stroke", "white")
 		//.attr("stroke-width", 0.1)
 		.attr("id", "choro_fill")
+		.attr("class", function(d){
+			return d.properties.name
+		})
 		.on("mouseover", (event, d) => {
     if (+d.total > 0) {
         var bandcountword;
@@ -352,12 +362,51 @@ function create_choropleth(use_seed, use_community) {
 })
 		.on("mouseout", () => tooltip2.style("visibility","hidden"))
 		.on("mousemove", (event) => moveTooltip(event))
+		.on("click", (event, d) => console.log(populate_community_list(d.properties.name)))
 		;
 
 }
 
 function depopulate_choropleth(){
 	d3.selectAll("#choro_fill").remove();
+}
+
+function get_countries(country){
+	var test_rows = bandInfo.filter((row) => row.origin_country==country)
+	//console.log(bandInfo)
+	//console.log("heya")
+	//console.log(country)
+	//console.log(test_rows)
+	if (community != -1){
+		var seed_column = +seed+656+"_community"
+		test_rows = test_rows.filter((row) => row[seed_column] == community)
+		console.log('honkulus')
+	}
+	//console.log('uhhh')
+	//console.log(test_rows)
+	return test_rows
+}
+
+function populate_community_list(country){
+	var country_rows = get_countries(country)
+	if (community_list_populated == true){
+		depopulate_community_list()
+	}
+	d3.select("#community_list")
+		.append("ul")
+		.attr("id","community_list_items")
+	for (let row of country_rows){ 
+		d3.select("#community_list_items")
+			.append("li")
+			.html("<a href="+row.url+">"+row.name+"</a>")
+	}
+	community_list_populated=true
+	console.log(country_rows)
+}
+
+function depopulate_community_list(){
+	d3.select("#community_list_items").remove();
+	community_list_populated=false;
 }
 
 //tooltip for hovering over choropleth country 
@@ -472,6 +521,16 @@ populate_trivia(seed, community);
 
 create_choropleth(seed, community);
 
+//var id = '3540535639'
+//var thing = +seed+656+"_community"
+//console.log(thing)
+
+//var test_rows = bandInfo.filter((row) => row.origin_country=="United States")
+//test_rows = test_rows.filter((row) => row[thing] == 0)
+
+//var comp
+console.log(get_countries('United States'))
+
 
 
 </script>
@@ -506,15 +565,20 @@ create_choropleth(seed, community);
 		<div id="center_map_container"> 
 			<div id = "choropleth-container"></div>
 		</div>
-		<div id="search_container">
-			<h1> Todo: </h1> 
-			<ul>
-				<li>Include URLs for band names</li>
-				<li>Allow clicking on a country to pull up that nation's bands</li>
-				<li>Search feature? Allow user to search for band in seed.</li>
-				<li>Network map, if possible (maps may be too large/intensive)</li>
-				<li>Pretty up CSS</li>
-			</ul>
+		<div id="right_info_container">
+			<div id="search_container">
+				<h1> Todo: </h1> 
+				<ul>
+					<li>Search feature? Allow user to search for band in seed.</li>
+					<li>Network map, if possible (maps may be too large/intensive)</li>
+					<li>Pretty up CSS</li>
+				</ul>
+			</div>
+				<div id="community_list_container">
+					<div id = "community_list">
+				</div>
+				
+			</div>
 		</div>
 	</div>
 </div>
