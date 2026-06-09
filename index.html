@@ -150,6 +150,7 @@ const commInfo = await d3.dsv("\t","/csvs/comm_level_df.csv");
 const bandInfo = await d3.dsv("\t", "/csvs/band_level_df.csv");
 const land_geoJson = await d3.json("https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_land.geojson")
 const global_geoJson = await d3.json("geojson/countries_land.geojson")
+const reversedBlues = d3.schemeBlues[9].slice().reverse();
 
 // define genre and country lists
 const genreList = ['black','death','doom','electronic','experimental','folk','gothic','grindcore',
@@ -392,7 +393,7 @@ function create_choropleth(use_seed, use_community) {
 	choro_use_map.forEach((value, key, map) => {chorovals.push(+value)})
 	var choromax = parseInt(Math.max(...chorovals)*0.9)
 
-	var colorScale = d3.scaleQuantize([0,choromax],d3.schemeReds[9]);
+	var colorScale = d3.scaleQuantize([0,choromax],reversedBlues);
 
 
 	choro_svg.append("g")
@@ -450,7 +451,7 @@ const legend = d3.select("#choropleth-container")
     .style("display", "block")
     .style("margin-top", "8px");
 
-	const legendColors = d3.schemeReds[9];
+	const legendColors = reversedBlues;
 
 	legend.selectAll("rect")
 		.data(legendColors)
