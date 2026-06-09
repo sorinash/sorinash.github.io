@@ -434,6 +434,59 @@ function create_choropleth(use_seed, use_community) {
 		.on("mousemove", (event) => moveTooltip(event))
 		.on("click", (event, d) => console.log(populate_community_list(d.properties.name)))
 		;
+// remove any existing legend first (for redraws)
+d3.select("#choro-legend").remove();
+
+const legendWidth = 200;
+const legendHeight = 12;
+const bucketCount = 9;
+const bucketWidth = legendWidth / bucketCount;
+
+const legend = d3.select("#choropleth-container")
+    .append("svg")
+    .attr("id", "choro-legend")
+    .attr("width", legendWidth + 80)
+    .attr("height", 50)
+    .style("display", "block")
+    .style("margin-top", "8px");
+
+	const legendColors = d3.schemeReds[9];
+
+	legend.selectAll("rect")
+		.data(legendColors)
+		.enter()
+		.append("rect")
+			.attr("x", (d, i) => i * bucketWidth + 40)
+			.attr("y", 10)
+			.attr("width", bucketWidth)
+			.attr("height", legendHeight)
+			.attr("fill", d => d);
+
+	legend.append("text")
+		.attr("x", 36)
+		.attr("y", 21)
+		.attr("text-anchor", "end")
+		.attr("fill", "#a0a3b1")
+		.attr("font-size", "11px")
+		.text("0");
+
+
+	legend.append("text")
+		.attr("x", 40 + legendWidth + 4)
+		.attr("y", 21)
+		.attr("text-anchor", "start")
+		.attr("fill", "#a0a3b1")
+		.attr("font-size", "11px")
+		.text(choromax);
+
+	legend.append("text")
+		.attr("x", 40 + legendWidth / 2)
+		.attr("y", 40)
+		.attr("text-anchor", "middle")
+		.attr("fill", "#6b6f84")
+		.attr("font-size", "11px")
+		.text("number of bands");
+
 
 }
 
